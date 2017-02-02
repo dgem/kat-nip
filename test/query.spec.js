@@ -74,14 +74,14 @@ describe('Query specs', function () {
 			function(err, res, body) {
 				checkQueryExecutedOK(err, res, body);
 				var params = {make : 'VW', model: 'Beetle'};
-				var matchCar = new Query('MATCH (x:Car {make: {make}, model:{model}}) RETURN x', params);
+				var matchCar = new Query('MATCH (x:Car {make: {make}, model:{model}}) RETURN x LIMIT {limit}', Object.assign({},params,{limit:100}));
 				var rows = 0;
 				request(matchCar.buildRequest())
 					.pipe(JSONStream.parse('results.*.data.*.row'))
 					.on('data', function(data){
 						expect(data).is.instanceof(Array);
 						data.forEach((car)=> {
-							expect(car).to.equal(car);
+							expect(car).to.eql(params);
 						});
 						rows ++;
 					})
