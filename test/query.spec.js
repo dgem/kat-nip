@@ -8,11 +8,10 @@ const JSONStream = require('JSONStream');
 
 
 describe('Query specs', function () {
-	const simpleQuery = new Query('MATCH (x) RETURN id(x) LIMIT 1');
-	const longerQuery = new Query('MATCH (x) RETURN id(x) LIMIT 10');
+	const simpleMatch = new Query('MATCH (x) RETURN id(x) LIMIT 1');
 
 	function checkQueryResponseBody(body){
-				// {"results":[{"columns":["id(x)"],"data":[{"row":[142966],"meta":[null]}]}],"errors":[]}
+		// {"results":[{"columns":["id(x)"],"data":[{"row":[142966],"meta":[null]}]}],"errors":[]}
 		var jsonObj = JSON.parse(body);
 		expect(jsonObj).to.have.ownProperty('results');
 		expect(jsonObj.results).to.be.instanceof(Array);
@@ -20,13 +19,13 @@ describe('Query specs', function () {
 	}
 
 	it('should be possible to construct a query', function(){
-		var req = simpleQuery.buildRequest();
+		var req = simpleMatch.buildRequest();
 		expectOwnProperties(req, ['headers', 'url', 'method', 'body']);
 		expectOwnProperties(JSON.parse(req.body), ['statements']);
 	});
 
 	it('should be possible to retrieve something using a request callback', function(done){
-		var req = simpleQuery.buildRequest();
+		var req = simpleMatch.buildRequest();
 		request(req, function(err, res, body) {
 			expect(err).to.be.null;
 			expect(res.statusCode).to.equal(200);
@@ -37,7 +36,7 @@ describe('Query specs', function () {
 	});
 
 	it('should be possible to stream something using a request', function(done) {
-		var req = simpleQuery.buildRequest();
+		var req = simpleMatch.buildRequest();
 		const chunks = [];
 		var requestStream = request(req)
 			.on('data', function(data){
@@ -50,7 +49,8 @@ describe('Query specs', function () {
 	});
 
 	it('should be possible to stream multiple things through JSONStreamer', function(done){
-		var req = longerQuery.buildRequest();
+		var matchMany = new Query('MATCH (x) RETURN id(x) LIMIT 10');
+		var req = matchMany.buildRequest();
 		var rows = 0;
 		var requestStream = request(req)
 			.pipe(JSONStream.parse('results.*.data.*.row'))
@@ -63,5 +63,38 @@ describe('Query specs', function () {
 				done();
 			});
 	});
+
+	it('should be possible to stream a parameterised query through JSONStreamer', function(done){
+		request(new Query('CREATE (c:Car {make :"VW", model:"Beetle"}) RETURN c').buildRequest(),
+			function(err, res, body) {
+				expect(err).to.be.null;
+				expect(res.statusCode).to.equal(200);
+				expect(JSON.parse(body).errors).to.eql([]);
+				var params = {make : 'VW', model: 'Beetle'};
+				var matchCar = new Query('MATCH (x:Car {make: {make}, model:{model}}) RETURN x', params);
+				var rows = 0;
+				request(matchCar.buildRequest())
+					.pipe(JSONStream.parse('results.*.data.*.row'))
+					.on('data', function(data){
+						expect(data).is.instanceof(Array);
+						data.forEach((car)=> {
+							expect(car).to.equal(car);
+						});
+						rows ++;
+					})
+					.on('end', function(){
+						expect(rows).to.be.at.least(1);
+						request(new Query('MATCH (c:Car {make :"VW", model:"Beetle"}) DELETE c').buildRequest(),
+							function(err, res, body) {
+								expect(err).to.be.null;
+								expect(res.statusCode).to.equal(200);
+								expect(JSON.parse(body).errors).to.eql([]);
+								done();
+							}
+						);
+					});
+		});
+	});
+
 
 });
