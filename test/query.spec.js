@@ -10,6 +10,13 @@ const JSONStream = require('JSONStream');
 describe('Query specs', function () {
 	const simpleMatch = new Query('MATCH (x) RETURN id(x) LIMIT 1');
 
+	function checkQueryExecutedOK(err, res, body) {
+		expect(err).to.be.null;
+		expect(res.statusCode).to.equal(200);
+		expect(body).to.not.be.null;
+		expect(JSON.parse(body).errors).to.eql([]);
+	}
+
 	function checkQueryResponseBody(body){
 		// {"results":[{"columns":["id(x)"],"data":[{"row":[142966],"meta":[null]}]}],"errors":[]}
 		var jsonObj = JSON.parse(body);
@@ -27,9 +34,7 @@ describe('Query specs', function () {
 	it('should be possible to retrieve something using a request callback', function(done){
 		var req = simpleMatch.buildRequest();
 		request(req, function(err, res, body) {
-			expect(err).to.be.null;
-			expect(res.statusCode).to.equal(200);
-			expect(body).to.not.be.null;
+			checkQueryExecutedOK(err, res, body);
 			checkQueryResponseBody(body);
 			done();
 		});
@@ -67,9 +72,7 @@ describe('Query specs', function () {
 	it('should be possible to stream a parameterised query through JSONStreamer', function(done){
 		request(new Query('CREATE (c:Car {make :"VW", model:"Beetle"}) RETURN c').buildRequest(),
 			function(err, res, body) {
-				expect(err).to.be.null;
-				expect(res.statusCode).to.equal(200);
-				expect(JSON.parse(body).errors).to.eql([]);
+				checkQueryExecutedOK(err, res, body);
 				var params = {make : 'VW', model: 'Beetle'};
 				var matchCar = new Query('MATCH (x:Car {make: {make}, model:{model}}) RETURN x', params);
 				var rows = 0;
@@ -86,15 +89,11 @@ describe('Query specs', function () {
 						expect(rows).to.be.at.least(1);
 						request(new Query('MATCH (c:Car {make :"VW", model:"Beetle"}) DELETE c').buildRequest(),
 							function(err, res, body) {
-								expect(err).to.be.null;
-								expect(res.statusCode).to.equal(200);
-								expect(JSON.parse(body).errors).to.eql([]);
+								checkQueryExecutedOK(err, res, body);
 								done();
 							}
 						);
 					});
 		});
 	});
-
-
 });
