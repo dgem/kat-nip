@@ -1,7 +1,8 @@
 'use-strict';
 
 const expect = require("chai").expect;
-const Query = require('../lib/query').Query;
+const Query = require('../lib/cypher').Query;
+const cypher = require('../lib/cypher');
 const request = require('request');
 const expectOwnProperties = require('./expectOwnProperties');
 const JSONStream = require('JSONStream');
@@ -77,23 +78,45 @@ describe('Query specs', function () {
 				var matchCar = new Query('MATCH (x:Car {make: {make}, model:{model}}) RETURN x LIMIT {limit}', Object.assign({},params,{limit:100}));
 				var rows = 0;
 				request(matchCar.buildRequest())
-					.pipe(JSONStream.parse('results.*.data.*.row'))
-					.on('data', function(data){
-						expect(data).is.instanceof(Array);
-						data.forEach((car)=> {
-							expect(car).to.eql(params);
-						});
-						rows ++;
-					})
-					.on('end', function(){
-						expect(rows).to.be.at.least(1);
-						request(new Query('MATCH (c:Car {make :"VW", model:"Beetle"}) DELETE c').buildRequest(),
-							function(err, res, body) {
-								checkQueryExecutedOK(err, res, body);
-								done();
-							}
-						);
+				.pipe(JSONStream.parse('results.*.data.*.row'))
+				.on('data', function(data){
+					expect(data).is.instanceof(Array);
+					data.forEach((car)=> {
+						expect(car).to.eql(params);
 					});
-		});
+					rows ++;
+				})
+				.on('end', function(){
+					expect(rows).to.be.at.least(1);
+					request(new Query('MATCH (c:Car {make :"VW", model:"Beetle"}) DELETE c').buildRequest(),
+						function(err, res, body) {
+							checkQueryExecutedOK(err, res, body);
+							done();
+						}
+					);
+				});
+			}
+		);
 	});
+
+	it('should be possible to get 10 Users', function(done){
+		var statement = cypher.getUsers.limited;
+		var req = statement.buildRequest({limit:10});
+		var rows = 0;
+		var requestStream = request(req)
+			// .on('data', function(data){
+			// 	console.log(data.toString());
+			// })
+			.pipe(JSONStream.parse('results.*.data.*.row'))
+			.on('data', function(data){
+				// console.log(data);
+				expect(data).is.instanceof(Array);
+				rows ++;
+			})
+			.on('end', function(){
+				expect(rows).to.equal(10);
+				done();
+			});
+	});
+
 });

@@ -28,9 +28,11 @@
     "kat-nip": "index.js"
   },
   "dependencies": {
+    "@financial-times/n-logger": "^5.5.0",
     "JSONStream": "^1.3.0",
     "commander": "^2.9.0",
+    "kat-client-proxies": "github:financial-times/kat-client-proxies",
     "request": "^2.79.0",
-    "winston": "^2.3.0"
+    "winston": "^2.3.1"
   }
 }
